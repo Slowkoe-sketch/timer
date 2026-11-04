@@ -16,41 +16,41 @@
     background: #0f172a;
     color: #f8fafc;
     min-height: 100vh;
-    padding: 10px 8px;
+    padding: 14px 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
   }
 
-  /* Compacte Invoerbalk */
+  /* Invoerbalk */
   .add-bar {
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
     display: flex;
-    gap: 4px;
+    gap: 6px;
     background: #1e293b;
-    padding: 4px 6px;
-    border-radius: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
     border: 1px solid #334155;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
   }
 
   .add-bar input {
     background: transparent;
     border: none;
     color: #fff;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: normal;
     outline: none;
   }
 
   .add-bar input[type="text"] {
     flex: 1;
-    padding: 2px 4px;
+    padding: 4px;
   }
 
   .add-bar input[type="number"] {
-    width: 32px;
+    width: 38px;
     text-align: center;
     border-left: 1px solid #334155;
   }
@@ -59,28 +59,28 @@
     background: #3b82f6;
     color: white;
     border: none;
-    border-radius: 4px;
-    padding: 0 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 16px;
     font-weight: normal;
     cursor: pointer;
   }
 
-  /* Grid ingericht op 7+ items in beeld */
+  /* Grid geoptimaliseerd voor ca. 7 timers per pagina */
   .timer-grid {
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
 
-  /* Ultra-compacte Row */
+  /* Timer Rijen */
   .timer-row {
     background: #1e293b;
     border: 1px solid #334155;
-    border-radius: 5px;
-    padding: 4px 8px;
+    border-radius: 8px;
+    padding: 8px 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -90,40 +90,40 @@
   .timer-info {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     overflow: hidden;
   }
 
   .timer-label {
-    font-size: 10px;
+    font-size: 12px;
     color: #94a3b8;
     font-weight: normal;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 110px;
+    max-width: 120px;
   }
 
   .timer-time {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 12px;
+    font-size: 15px;
     font-weight: normal;
     color: #38bdf8;
     letter-spacing: -0.3px;
-    min-width: 40px;
+    min-width: 50px;
   }
 
   .timer-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
 
   .btn {
     border: none;
-    border-radius: 3px;
-    padding: 3px 6px;
-    font-size: 9px;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 11px;
     font-weight: normal;
     cursor: pointer;
     text-transform: uppercase;
@@ -131,11 +131,11 @@
 
   .btn-start { background: #0369a1; color: #e0f2fe; }
   .btn-pause { background: #b45309; color: #fef3c7; }
-  .btn-reset { background: #334155; color: #94a3b8; padding: 3px 5px; }
-  .btn-del { background: transparent; color: #64748b; padding: 1px 3px; font-size: 11px; }
+  .btn-reset { background: #334155; color: #94a3b8; padding: 5px 7px; }
+  .btn-del { background: transparent; color: #64748b; padding: 2px 4px; font-size: 13px; }
   .btn-del:hover { color: #ef4444; }
 
-  /* Bijna klaar (< 10 sec) */
+  /* Waarschuwing (< 10 sec) */
   .warning {
     border-color: #f59e0b;
     background: #271e0c;
@@ -175,7 +175,6 @@
 let count = 0;
 let timersList = [];
 
-// Laad opgeslagen timers bij het openen van de pagina
 window.onload = function() {
   const saved = localStorage.getItem("saved_timers");
   if (saved) {
@@ -270,7 +269,7 @@ function start(id) {
       row.classList.remove("warning");
       row.classList.add("finished");
       pause(id);
-      beep(880, 0.4);
+      playFinishedBeeps();
     }
   }, 1000);
 
@@ -309,6 +308,26 @@ function beep(freq, duration) {
     osc.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + duration);
+  } catch(e){}
+}
+
+// Speelt 5 duidelijke piepjes af wanneer de timer afliep
+function playFinishedBeeps() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let count = 0;
+    const interval = setInterval(() => {
+      if (count >= 5) {
+        clearInterval(interval);
+        return;
+      }
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 880;
+      osc.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+      count++;
+    }, 250);
   } catch(e){}
 }
 </script>
