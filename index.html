@@ -20,6 +20,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    user-select: none;
   }
 
   /* Invoerbalk */
@@ -75,7 +76,7 @@
     gap: 8px;
   }
 
-  /* Timer Rijen */
+  /* Timer Rijen met Drag & Drop */
   .timer-row {
     background: #1e293b;
     border: 1px solid #334155;
@@ -84,16 +85,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    transition: all 0.2s ease;
+    transition: transform 0.15s ease, background-color 0.2s ease;
+    cursor: grab;
+    touch-action: none;
   }
 
-  .timer-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    overflow: hidden;
+  .timer-row.dragging {
+    opacity: 0.5;
+    background: #334155;
   }
 
+  /* Links uitgelijnde naam */
   .timer-label {
     font-size: 12px;
     color: #94a3b8;
@@ -101,28 +103,38 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100px;
+    text-align: left;
+    flex: 1;
+    padding-right: 8px;
   }
 
+  .timer-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Tijd rechts uitgelijnd direct voor de knoppen */
   .timer-time {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 14px;
     font-weight: normal;
     color: #38bdf8;
     letter-spacing: -0.3px;
-    min-width: 45px;
+    text-align: right;
+    min-width: 48px;
   }
 
   .timer-actions {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
   }
 
   .btn {
     border: none;
     border-radius: 4px;
-    padding: 4px 6px;
+    padding: 5px 8px;
     font-size: 10px;
     font-weight: normal;
     cursor: pointer;
@@ -131,10 +143,8 @@
 
   .btn-start { background: #0369a1; color: #e0f2fe; }
   .btn-pause { background: #b45309; color: #fef3c7; }
-  .btn-reset { background: #334155; color: #94a3b8; padding: 4px 5px; }
-  .btn-move  { background: #1e293b; color: #64748b; border: 1px solid #334155; padding: 4px 6px; font-size: 11px; }
-  .btn-move:hover { color: #f8fafc; background: #334155; }
-  .btn-del   { background: transparent; color: #64748b; padding: 2px 3px; font-size: 12px; }
+  .btn-reset { background: #334155; color: #94a3b8; padding: 5px 6px; }
+  .btn-del   { background: transparent; color: #64748b; padding: 2px 4px; font-size: 12px; }
   .btn-del:hover { color: #ef4444; }
 
   /* Waarschuwing (< 10 sec) */
@@ -176,7 +186,6 @@
 <script>
 let count = 0;
 let timersList = [];
-// Houdt bij welke timers actief aan het tellen zijn
 let activeIntervals = {};
 
 window.onload = function() {
@@ -235,26 +244,27 @@ function renderTimer(timerObj) {
   if (timerObj.rem <= 10 && timerObj.rem > 0) row.classList.add("warning");
   if (timerObj.rem <= 0) row.classList.add("finished");
   row.id = `t-${id}`;
+  row.draggable = true;
 
   const isRunning = timerObj.running;
 
   row.innerHTML = `
-    <div class="timer-info">
-      <span class="timer-label" title="${timerObj.label}">${timerObj.label}</span>
+    <span class="timer-label" title="${timerObj.label}">${timerObj.label}</span>
+    <div class="timer-controls">
       <span class="timer-time" id="disp-${id}">${fmt(timerObj.rem)}</span>
-    </div>
-    <div class="timer-actions">
-      <button class="btn ${isRunning ? 'btn-pause' : 'btn-start'}" id="btn-${id}" onclick="toggle(${id})">${isRunning ? 'Pauze' : 'Start'}</button>
-      <button class="btn btn-reset" onclick="resetTimer(${id})">↺</button>
-      <button class="btn btn-move" onclick="move(${id}, -1)">▲</button>
-      <button class="btn btn-move" onclick="move(${id}, 1)">▼</button>
-      <button class="btn btn-del" onclick="del(${id})">✕</button>
+      <div class="timer-actions">
+        <button class="btn ${isRunning ? 'btn-pause' : 'btn-start'}" id="btn-${id}" onclick="toggle(${id})">${isRunning ? 'Pauze' : 'Start'}</button>
+        <button class="btn btn-reset" onclick="resetTimer(${id})">↺</button>
+        <button class="btn btn-del" onclick="del(${id})">✕</button>
+      </div>
     </div>
   `;
 
+  // Drag & Drop events toevoegen
+  addDragListeners(row, id);
+
   grid.appendChild(row);
 
-  // Als hij liep voordat we gingen renderen, hervat de interval
   if (isRunning && !activeIntervals[id]) {
     runInterval(id);
   }
@@ -354,42 +364,89 @@ function resetTimer(id) {
   }
 }
 
-function move(id, direction) {
-  const index = timersList.findIndex(t => t.id === id);
-  if (index === -1) return;
-
-  const newIndex = index + direction;
-  if (newIndex < 0 || newIndex >= timersList.length) return;
-
-  // Stop lopende timers tijdelijk in UI om sync te behouden
-  timersList.forEach(t => {
-    if (activeIntervals[t.id]) {
-      clearInterval(activeIntervals[t.id]);
-      delete activeIntervals[t.id];
-    }
-  });
-
-  // Wissel van plek in de array
-  const temp = timersList[index];
-  timersList[index] = timersList[newIndex];
-  timersList[newIndex] = temp;
-
-  saveToStorage();
-  renderAll();
-
-  // Hervat de timers die liepen
-  timersList.forEach(t => {
-    if (t.running) {
-      runInterval(t.id);
-    }
-  });
-}
-
 function del(id) {
   pauseTimer(id);
   timersList = timersList.filter(t => t.id !== id);
   saveToStorage();
   renderAll();
+}
+
+/* Drag & Drop Logica */
+let dragSrcId = null;
+
+function addDragListeners(row, id) {
+  row.addEventListener('dragstart', (e) => {
+    dragSrcId = id;
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  row.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+  });
+
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (dragSrcId !== null && dragSrcId !== id) {
+      const fromIndex = timersList.findIndex(t => t.id === dragSrcId);
+      const toIndex = timersList.findIndex(t => t.id === id);
+
+      const [movedItem] = timersList.splice(fromIndex, 1);
+      timersList.splice(toIndex, 0, movedItem);
+
+      saveToStorage();
+      renderAll();
+    }
+  });
+
+  // Touch ondersteuning voor mobiel
+  row.addEventListener('touchstart', handleTouchStart, false);
+  row.addEventListener('touchmove', handleTouchMove, false);
+  row.addEventListener('touchend', handleTouchEnd, false);
+}
+
+let touchSrcId = null;
+let touchElement = null;
+
+function handleTouchStart(e) {
+  if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+  touchElement = e.currentTarget;
+  touchSrcId = parseInt(touchElement.id.replace('t-', ''));
+  touchElement.classList.add('dragging');
+}
+
+function handleTouchMove(e) {
+  if (!touchElement) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  const targetRow = target ? target.closest('.timer-row') : null;
+
+  if (targetRow && targetRow !== touchElement) {
+    const targetId = parseInt(targetRow.id.replace('t-', ''));
+    const fromIndex = timersList.findIndex(t => t.id === touchSrcId);
+    const toIndex = timersList.findIndex(t => t.id === targetId);
+
+    if (fromIndex !== -1 && toIndex !== -1) {
+      const [movedItem] = timersList.splice(fromIndex, 1);
+      timersList.splice(toIndex, 0, movedItem);
+      renderAll();
+    }
+  }
+}
+
+function handleTouchEnd() {
+  if (touchElement) {
+    touchElement.classList.remove('dragging');
+    touchElement = null;
+    touchSrcId = null;
+    saveToStorage();
+  }
 }
 
 function beep(freq, duration) {
