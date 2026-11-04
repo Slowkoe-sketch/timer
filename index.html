@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timers</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  body {
+    background: #0f172a;
+    color: #f8fafc;
+    min-height: 100vh;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Compacte Invoerbalk */
+  .add-bar {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    gap: 4px;
+    background: #1e293b;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid #334155;
+    margin-bottom: 8px;
+  }
+
+  .add-bar input {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 11px;
+    font-weight: normal;
+    outline: none;
+  }
+
+  .add-bar input[type="text"] {
+    flex: 1;
+    padding: 2px 4px;
+  }
+
+  .add-bar input[type="number"] {
+    width: 32px;
+    text-align: center;
+    border-left: 1px solid #334155;
+  }
+
+  .add-bar button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0 8px;
+    font-size: 14px;
+    font-weight: normal;
+    cursor: pointer;
+  }
+
+  /* Grid ingericht op 7+ items in beeld */
+  .timer-grid {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Ultra-compacte Row */
+  .timer-row {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 5px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+  }
+
+  .timer-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .timer-label {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+  }
+
+  .timer-time {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    font-weight: normal;
+    color: #38bdf8;
+    letter-spacing: -0.3px;
+    min-width: 40px;
+  }
+
+  .timer-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-size: 9px;
+    font-weight: normal;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  .btn-start { background: #0369a1; color: #e0f2fe; }
+  .btn-pause { background: #b45309; color: #fef3c7; }
+  .btn-reset { background: #334155; color: #94a3b8; padding: 3px 5px; }
+  .btn-del { background: transparent; color: #64748b; padding: 1px 3px; font-size: 11px; }
+  .btn-del:hover { color: #ef4444; }
+
+  /* Bijna klaar (< 10 sec) */
+  .warning {
+    border-color: #f59e0b;
+    background: #271e0c;
+  }
+  .warning .timer-time {
+    color: #fbbf24;
+  }
+
+  /* Afgelopen */
+  .finished {
+    border-color: #ef4444;
+    background: #291215;
+    animation: blink 0.6s infinite alternate;
+  }
+  .finished .timer-time {
+    color: #f87171;
+  }
+
+  @keyframes blink {
+    from { border-color: #ef4444; }
+    to { border-color: transparent; }
+  }
+</style>
+</head>
+<body>
+
+<div class="add-bar">
+  <input type="text" id="label" placeholder="Naam timer..." maxlength="20">
+  <input type="number" id="min" placeholder="m" min="0" max="99" value="5">
+  <input type="number" id="sec" placeholder="s" min="0" max="59" value="0">
+  <button onclick="addTimer()">+</button>
+</div>
+
+<div id="grid" class="timer-grid"></div>
+
+<script>
+let count = 0;
+let timersList = [];
+
+// Laad opgeslagen timers bij het openen van de pagina
+window.onload = function() {
+  const saved = localStorage.getItem("saved_timers");
+  if (saved) {
+    timersList = JSON.parse(saved);
+    timersList.forEach(t => renderTimer(t));
+  }
+};
+
+function saveToStorage() {
+  localStorage.setItem("saved_timers", JSON.stringify(timersList));
+}
+
+function addTimer() {
+  const labelInput = document.getElementById("label");
+  const minInput = document.getElementById("min");
+  const secInput = document.getElementById("sec");
+
+  const label = labelInput.value.trim() || `Timer ${++count}`;
+  const total = ((parseInt(minInput.value) || 0) * 60) + (parseInt(secInput.value) || 0);
+
+  if (total <= 0) return;
+
+  const timerObj = {
+    id: Date.now(),
+    label: label,
+    total: total
+  };
+
+  timersList.push(timerObj);
+  saveToStorage();
+  renderTimer(timerObj);
+
+  labelInput.value = "";
+}
+
+function renderTimer(timerObj) {
+  const id = timerObj.id;
+  const total = timerObj.total;
+
+  const row = document.createElement("div");
+  row.className = "timer-row";
+  row.id = `t-${id}`;
+  row.dataset.total = total;
+  row.dataset.rem = total;
+
+  row.innerHTML = `
+    <div class="timer-info">
+      <span class="timer-label">${timerObj.label}</span>
+      <span class="timer-time" id="disp-${id}">${fmt(total)}</span>
+    </div>
+    <div class="timer-actions">
+      <button class="btn btn-start" id="btn-${id}" onclick="toggle(${id})">Start</button>
+      <button class="btn btn-reset" onclick="reset(${id})">↺</button>
+      <button class="btn btn-del" onclick="del(${id})">✕</button>
+    </div>
+  `;
+
+  document.getElementById("grid").appendChild(row);
+}
+
+function fmt(s) {
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const sec = (s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+
+function toggle(id) {
+  const row = document.getElementById(`t-${id}`);
+  if (row.dataset.run === "1") pause(id);
+  else start(id);
+}
+
+function start(id) {
+  const row = document.getElementById(`t-${id}`);
+  const btn = document.getElementById(`btn-${id}`);
+  row.dataset.run = "1";
+  btn.innerText = "Pauze";
+  btn.className = "btn btn-pause";
+
+  const timer = setInterval(() => {
+    let rem = parseInt(row.dataset.rem) - 1;
+    row.dataset.rem = rem;
+    document.getElementById(`disp-${id}`).innerText = fmt(rem);
+
+    if (rem === 10) {
+      row.classList.add("warning");
+      beep(600, 0.1);
+    }
+
+    if (rem <= 0) {
+      clearInterval(timer);
+      row.classList.remove("warning");
+      row.classList.add("finished");
+      pause(id);
+      beep(880, 0.4);
+    }
+  }, 1000);
+
+  row.dataset.timer = timer;
+}
+
+function pause(id) {
+  const row = document.getElementById(`t-${id}`);
+  const btn = document.getElementById(`btn-${id}`);
+  clearInterval(row.dataset.timer);
+  row.dataset.run = "0";
+  btn.innerText = "Start";
+  btn.className = "btn btn-start";
+}
+
+function reset(id) {
+  pause(id);
+  const row = document.getElementById(`t-${id}`);
+  row.classList.remove("warning", "finished");
+  row.dataset.rem = row.dataset.total;
+  document.getElementById(`disp-${id}`).innerText = fmt(row.dataset.total);
+}
+
+function del(id) {
+  pause(id);
+  document.getElementById(`t-${id}`).remove();
+  timersList = timersList.filter(t => t.id !== id);
+  saveToStorage();
+}
+
+function beep(freq, duration) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    osc.frequency.value = freq;
+    osc.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch(e){}
+}
+</script>
+
+</body>
+</html>
