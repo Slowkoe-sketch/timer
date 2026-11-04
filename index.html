@@ -24,7 +24,6 @@
     user-select: none;
   }
 
-  /* Topbalk met Titel en Plus-knop */
   .app-header {
     width: 100%;
     max-width: 380px;
@@ -54,7 +53,6 @@
     justify-content: center;
   }
 
-  /* Grid voor timers */
   .timer-grid {
     width: 100%;
     max-width: 380px;
@@ -63,7 +61,6 @@
     gap: 8px;
   }
 
-  /* Timer Rijen met Voortgangsbalk & Drag & Drop */
   .timer-row {
     position: relative;
     background: #1e293b;
@@ -79,7 +76,6 @@
     overflow: hidden;
   }
 
-  /* Subtiele voortgangslaag achter de tekst en knoppen */
   .progress-bg {
     position: absolute;
     top: 0;
@@ -147,11 +143,637 @@
   .btn-del   { background: transparent; color: #64748b; padding: 2px 4px; font-size: 12px; }
   .btn-del:hover { color: #ef4444; }
 
-  /* Waarschuwing & Afgelopen */
   .warning { border-color: #f59e0b; background: #271e0c; }
   .warning .progress-bg { background: rgba(245, 158, 11, 0.18); }
   .warning .timer-time { color: #fbbf24; }
 
   .finished { border-color: #ef4444; background: #291215; animation: blink 0.6s infinite alternate; }
   .finished .progress-bg { width: 100% !important; background: rgba(239, 68, 68, 0.25); }
-  .finished .timer-time { color
+  .finished .timer-time { color: #f87171; }
+
+  @keyframes blink {
+    from { border-color: #ef4444; }
+    to { border-color: transparent; }
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal-content {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 16px;
+    width: 90%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .modal-title {
+    font-size: 13px;
+    color: #f8fafc;
+    text-align: center;
+  }
+
+  .modal-input {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #fff;
+    padding: 8px;
+    font-size: 13px;
+    outline: none;
+    width: 100%;
+  }
+
+  .wheels-container {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .wheel-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .wheel-label {
+    font-size: 10px;
+    color: #64748b;
+  }
+
+  .wheel {
+    height: 110px;
+    width: 65px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+  }
+
+  .wheel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .wheel-inner {
+    padding: 38px 0;
+  }
+
+  .wheel-item {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #94a3b8;
+    scroll-snap-align: center;
+    cursor: pointer;
+  }
+
+  .wheel-item.selected {
+    color: #38bdf8;
+    font-size: 16px;
+  }
+
+  .modal-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .modal-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  .btn-cancel { background: #334155; color: #94a3b8; }
+  .btn-confirm { background: #3b82f6; color: white; }
+  .btn-danger { background: #ef4444; color: white; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <span class="app-title">Timers</span>
+  <button class="btn-add-main" onclick="openModal()">+</button>
+</div>
+
+<div id="grid" class="timer-grid"></div>
+
+<div id="modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-title">Nieuwe timer</div>
+    <input type="text" id="modal-label" class="modal-input" placeholder="Naam timer..." maxlength="20">
+    
+    <div class="wheels-container">
+      <div class="wheel-group">
+        <span class="wheel-label">uur</span>
+        <div class="wheel" id="wheel-hour"><div class="wheel-inner" id="inner-hour"></div></div>
+      </div>
+      <div class="wheel-group">
+        <span class="wheel-label">min</span>
+        <div class="wheel" id="wheel-min"><div class="wheel-inner" id="inner-min"></div></div>
+      </div>
+      <div class="wheel-group">
+        <span class="wheel-label">sec</span>
+        <div class="wheel" id="wheel-sec"><div class="wheel-inner" id="inner-sec"></div></div>
+      </div>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="modal-btn btn-cancel" onclick="closeModal()">Annuleren</button>
+      <button class="modal-btn btn-confirm" onclick="confirmAddTimer()">Toevoegen</button>
+    </div>
+  </div>
+</div>
+
+<div id="delete-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-title" id="delete-msg">Weet je zeker dat je deze timer wilt verwijderen?</div>
+    <div class="modal-buttons">
+      <button class="modal-btn btn-cancel" onclick="closeDeleteModal()">Nee</button>
+      <button class="modal-btn btn-danger" onclick="confirmDelete()">Ja, verwijder</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let count = 0;
+let timersList = [];
+let activeIntervals = {};
+let postFinishedTimeouts = {};
+let timerToDelete = null;
+
+window.onload = function() {
+  initWheels();
+  const saved = localStorage.getItem("saved_timers");
+  if (saved) {
+    try {
+      timersList = JSON.parse(saved);
+      timersList.forEach(t => {
+        if (typeof t.total !== 'number' || isNaN(t.total)) t.total = 300;
+        if (typeof t.rem !== 'number' || isNaN(t.rem)) t.rem = t.total;
+        if (typeof t.running !== 'boolean') t.running = false;
+        
+        if (t.running && t.endTime) {
+          const remainingSecs = Math.round((t.endTime - Date.now()) / 1000);
+          if (remainingSecs <= 0) {
+            t.rem = 0;
+            t.running = false;
+          } else {
+            t.rem = remainingSecs;
+          }
+        }
+      });
+    } catch(e) {
+      timersList = [];
+    }
+    renderAll();
+  }
+};
+
+function initWheels() {
+  populateWheel('inner-hour', 24, 0);
+  populateWheel('inner-min', 60, 5);
+  populateWheel('inner-sec', 60, 0);
+}
+
+function populateWheel(containerId, maxVal, defaultVal) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  for (let i = 0; i < maxVal; i++) {
+    const item = document.createElement('div');
+    item.className = `wheel-item ${i === defaultVal ? 'selected' : ''}`;
+    item.innerText = i.toString().padStart(2, '0');
+    item.dataset.value = i;
+    container.appendChild(item);
+  }
+  const wheel = container.parentElement;
+  wheel.scrollTop = defaultVal * 34;
+
+  wheel.addEventListener('scroll', () => {
+    const index = Math.round(wheel.scrollTop / 34);
+    const items = container.querySelectorAll('.wheel-item');
+    items.forEach((it, idx) => {
+      if (idx === index) it.classList.add('selected');
+      else it.classList.remove('selected');
+    });
+  });
+}
+
+function getWheelValue(wheelId) {
+  const wheel = document.getElementById(wheelId);
+  return Math.round(wheel.scrollTop / 34);
+}
+
+function openModal() {
+  document.getElementById('modal').classList.add('active');
+  document.getElementById('modal-label').value = `Timer ${++count}`;
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+}
+
+function confirmAddTimer() {
+  const labelInput = document.getElementById('modal-label');
+  const label = labelInput.value.trim() || `Timer ${count}`;
+  
+  const h = getWheelValue('wheel-hour');
+  const m = getWheelValue('wheel-min');
+  const s = getWheelValue('wheel-sec');
+
+  const total = (h * 3600) + (m * 60) + s;
+  if (total <= 0) return;
+
+  const timerObj = {
+    id: Date.now(),
+    label: label,
+    total: total,
+    rem: total,
+    running: false,
+    endTime: null
+  };
+
+  timersList.push(timerObj);
+  saveToStorage();
+  renderAll();
+  closeModal();
+}
+
+function promptDel(id) {
+  timerToDelete = id;
+  const t = timersList.find(item => item.id === id);
+  const name = t ? t.label : 'deze timer';
+  document.getElementById('delete-msg').innerText = `Weet je zeker dat je "${name}" wilt verwijderen?`;
+  document.getElementById('delete-modal').classList.add('active');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.remove('active');
+  timerToDelete = null;
+}
+
+function confirmDelete() {
+  if (timerToDelete !== null) {
+    del(timerToDelete);
+  }
+  closeDeleteModal();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    timersList.forEach(t => {
+      if (t.running && t.endTime) {
+        const remainingSecs = Math.round((t.endTime - Date.now()) / 1000);
+        if (remainingSecs <= 0) {
+          t.rem = 0;
+          t.running = false;
+          pauseTimer(t.id);
+          const row = document.getElementById(`t-${t.id}`);
+          if (row) {
+            row.classList.remove("warning");
+            row.classList.add("finished");
+          }
+          playFinishedBeeps();
+          scheduleAutoReset(t.id);
+        } else {
+          t.rem = remainingSecs;
+        }
+        updateUI(t.id);
+      }
+    });
+    saveToStorage();
+  }
+});
+
+function saveToStorage() {
+  localStorage.setItem("saved_timers", JSON.stringify(timersList));
+}
+
+function renderAll() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  timersList.forEach(t => renderTimer(t));
+}
+
+function renderTimer(timerObj) {
+  const id = timerObj.id;
+  const grid = document.getElementById("grid");
+
+  const row = document.createElement("div");
+  row.className = "timer-row";
+  if (timerObj.rem <= 10 && timerObj.rem > 0) row.classList.add("warning");
+  if (timerObj.rem <= 0) row.classList.add("finished");
+  row.id = `t-${id}`;
+  row.draggable = true;
+
+  const isRunning = timerObj.running;
+  const pct = Math.min(100, Math.max(0, ((timerObj.total - timerObj.rem) / timerObj.total) * 100));
+
+  row.innerHTML = `
+    <div class="progress-bg" id="pbar-${id}" style="width: ${pct}%"></div>
+    <span class="timer-label" title="${timerObj.label}">${timerObj.label}</span>
+    <div class="timer-controls">
+      <span class="timer-time" id="disp-${id}">${fmt(timerObj.rem)}</span>
+      <div class="timer-actions">
+        <button class="btn ${isRunning ? 'btn-pause' : 'btn-start'}" id="btn-${id}" onclick="toggle(${id})">${isRunning ? 'Pauze' : 'Start'}</button>
+        <button class="btn btn-reset" onclick="resetTimer(${id})">↺</button>
+        <button class="btn btn-del" onclick="promptDel(${id})">✕</button>
+      </div>
+    </div>
+  `;
+
+  addDragListeners(row, id);
+  grid.appendChild(row);
+
+  if (isRunning && !activeIntervals[id]) {
+    runInterval(id);
+  }
+}
+
+function updateUI(id) {
+  const timerObj = timersList.find(t => t.id === id);
+  if (!timerObj) return;
+
+  const disp = document.getElementById(`disp-${id}`);
+  if (disp) disp.innerText = fmt(timerObj.rem);
+
+  const pbar = document.getElementById(`pbar-${id}`);
+  if (pbar) {
+    const pct = Math.min(100, Math.max(0, ((timerObj.total - timerObj.rem) / timerObj.total) * 100));
+    pbar.style.width = `${pct}%`;
+  }
+}
+
+function fmt(s) {
+  const safeS = Math.max(0, parseInt(s) || 0);
+  const h = Math.floor(safeS / 3600);
+  const m = Math.floor((safeS % 3600) / 60);
+  const sec = safeS % 60;
+
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  }
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+}
+
+function toggle(id) {
+  const timerObj = timersList.find(t => t.id === id);
+  if (!timerObj) return;
+
+  if (postFinishedTimeouts[id]) {
+    clearTimeout(postFinishedTimeouts[id]);
+    delete postFinishedTimeouts[id];
+  }
+
+  if (timerObj.running) {
+    pauseTimer(id);
+  } else {
+    timerObj.running = true;
+    timerObj.endTime = Date.now() + (timerObj.rem * 1000);
+    saveToStorage();
+    const btn = document.getElementById(`btn-${id}`);
+    if (btn) {
+      btn.innerText = "Pauze";
+      btn.className = "btn btn-pause";
+    }
+    runInterval(id);
+  }
+}
+
+function runInterval(id) {
+  if (activeIntervals[id]) clearInterval(activeIntervals[id]);
+
+  activeIntervals[id] = setInterval(() => {
+    const timerObj = timersList.find(t => t.id === id);
+    if (!timerObj || !timerObj.running) {
+      clearInterval(activeIntervals[id]);
+      return;
+    }
+
+    const remainingSecs = Math.round((timerObj.endTime - Date.now()) / 1000);
+    timerObj.rem = remainingSecs;
+
+    updateUI(id);
+
+    const row = document.getElementById(`t-${id}`);
+
+    if (timerObj.rem === 10) {
+      if (row) row.classList.add("warning");
+      beep(600, 0.1);
+    }
+
+    if (timerObj.rem <= 0) {
+      clearInterval(activeIntervals[id]);
+      timerObj.running = false;
+      timerObj.rem = 0;
+      if (row) {
+        row.classList.remove("warning");
+        row.classList.add("finished");
+      }
+      pauseTimerUI(id);
+      playFinishedBeeps();
+      scheduleAutoReset(id);
+    }
+    saveToStorage();
+  }, 1000);
+}
+
+function scheduleAutoReset(id) {
+  if (postFinishedTimeouts[id]) clearTimeout(postFinishedTimeouts[id]);
+  postFinishedTimeouts[id] = setTimeout(() => {
+    const timerObj = timersList.find(t => t.id === id);
+    if (timerObj && !timerObj.running && timerObj.rem <= 0) {
+      resetTimer(id);
+    }
+    delete postFinishedTimeouts[id];
+  }, 10000);
+}
+
+function pauseTimer(id) {
+  const timerObj = timersList.find(t => t.id === id);
+  if (timerObj) {
+    timerObj.running = false;
+    timerObj.endTime = null;
+    saveToStorage();
+  }
+  if (activeIntervals[id]) {
+    clearInterval(activeIntervals[id]);
+    delete activeIntervals[id];
+  }
+  pauseTimerUI(id);
+}
+
+function pauseTimerUI(id) {
+  const btn = document.getElementById(`btn-${id}`);
+  if (btn) {
+    btn.innerText = "Start";
+    btn.className = "btn btn-start";
+  }
+}
+
+function resetTimer(id) {
+  pauseTimer(id);
+  if (postFinishedTimeouts[id]) {
+    clearTimeout(postFinishedTimeouts[id]);
+    delete postFinishedTimeouts[id];
+  }
+  const timerObj = timersList.find(t => t.id === id);
+  if (timerObj) {
+    timerObj.rem = timerObj.total;
+    timerObj.endTime = null;
+    saveToStorage();
+    const row = document.getElementById(`t-${id}`);
+    if (row) row.classList.remove("warning", "finished");
+    updateUI(id);
+  }
+}
+
+function del(id) {
+  pauseTimer(id);
+  if (postFinishedTimeouts[id]) {
+    clearTimeout(postFinishedTimeouts[id]);
+    delete postFinishedTimeouts[id];
+  }
+  timersList = timersList.filter(t => t.id !== id);
+  saveToStorage();
+  renderAll();
+}
+
+let dragSrcId = null;
+
+function addDragListeners(row, id) {
+  row.addEventListener('dragstart', (e) => {
+    dragSrcId = id;
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  row.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+  });
+
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (dragSrcId !== null && dragSrcId !== id) {
+      const fromIndex = timersList.findIndex(t => t.id === dragSrcId);
+      const toIndex = timersList.findIndex(t => t.id === id);
+
+      const [movedItem] = timersList.splice(fromIndex, 1);
+      timersList.splice(toIndex, 0, movedItem);
+
+      saveToStorage();
+      renderAll();
+    }
+  });
+
+  row.addEventListener('touchstart', handleTouchStart, false);
+  row.addEventListener('touchmove', handleTouchMove, false);
+  row.addEventListener('touchend', handleTouchEnd, false);
+}
+
+let touchSrcId = null;
+let touchElement = null;
+
+function handleTouchStart(e) {
+  if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('.wheel')) return;
+  touchElement = e.currentTarget;
+  touchSrcId = parseInt(touchElement.id.replace('t-', ''));
+  touchElement.classList.add('dragging');
+}
+
+function handleTouchMove(e) {
+  if (!touchElement) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const target = document.elementFromPoint(touch.clientX, touch.clientY);
+  const targetRow = target ? target.closest('.timer-row') : null;
+
+  if (targetRow && targetRow !== touchElement) {
+    const targetId = parseInt(targetRow.id.replace('t-', ''));
+    const fromIndex = timersList.findIndex(t => t.id === touchSrcId);
+    const toIndex = timersList.findIndex(t => t.id === targetId);
+
+    if (fromIndex !== -1 && toIndex !== -1) {
+      const [movedItem] = timersList.splice(fromIndex, 1);
+      timersList.splice(toIndex, 0, movedItem);
+      renderAll();
+    }
+  }
+}
+
+function handleTouchEnd() {
+  if (touchElement) {
+    touchElement.classList.remove('dragging');
+    touchElement = null;
+    touchSrcId = null;
+    saveToStorage();
+  }
+}
+
+function beep(freq, duration) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    osc.frequency.value = freq;
+    osc.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch(e){}
+}
+
+function playFinishedBeeps() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let count = 0;
+    const interval = setInterval(() => {
+      if (count >= 5) {
+        clearInterval(interval);
+        return;
+      }
+      const osc = ctx.createOscillator();
+      osc.frequency.value = 880;
+      osc.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+      count++;
+    }, 250);
+  } catch(e){}
+}
+</script>
+
+</body>
+</html>
