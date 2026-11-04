@@ -80,7 +80,7 @@
     background: #1e293b;
     border: 1px solid #334155;
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 8px 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -90,7 +90,7 @@
   .timer-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     overflow: hidden;
   }
 
@@ -101,29 +101,29 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 120px;
+    max-width: 100px;
   }
 
   .timer-time {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: normal;
     color: #38bdf8;
     letter-spacing: -0.3px;
-    min-width: 50px;
+    min-width: 45px;
   }
 
   .timer-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
   }
 
   .btn {
     border: none;
     border-radius: 4px;
-    padding: 5px 8px;
-    font-size: 11px;
+    padding: 4px 6px;
+    font-size: 10px;
     font-weight: normal;
     cursor: pointer;
     text-transform: uppercase;
@@ -131,8 +131,10 @@
 
   .btn-start { background: #0369a1; color: #e0f2fe; }
   .btn-pause { background: #b45309; color: #fef3c7; }
-  .btn-reset { background: #334155; color: #94a3b8; padding: 5px 7px; }
-  .btn-del { background: transparent; color: #64748b; padding: 2px 4px; font-size: 13px; }
+  .btn-reset { background: #334155; color: #94a3b8; padding: 4px 5px; }
+  .btn-move  { background: #1e293b; color: #64748b; border: 1px solid #334155; padding: 4px 6px; font-size: 11px; }
+  .btn-move:hover { color: #f8fafc; background: #334155; }
+  .btn-del   { background: transparent; color: #64748b; padding: 2px 3px; font-size: 12px; }
   .btn-del:hover { color: #ef4444; }
 
   /* Waarschuwing (< 10 sec) */
@@ -174,17 +176,29 @@
 <script>
 let count = 0;
 let timersList = [];
+// Houdt bij welke timers actief aan het tellen zijn
+let activeIntervals = {};
 
 window.onload = function() {
   const saved = localStorage.getItem("saved_timers");
   if (saved) {
-    timersList = JSON.parse(saved);
-    timersList.forEach(t => renderTimer(t));
+    try {
+      timersList = JSON.parse(saved);
+    } catch(e) {
+      timersList = [];
+    }
+    renderAll();
   }
 };
 
 function saveToStorage() {
   localStorage.setItem("saved_timers", JSON.stringify(timersList));
+}
+
+function renderAll() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  timersList.forEach(t => renderTimer(t));
 }
 
 function addTimer() {
@@ -200,39 +214,50 @@ function addTimer() {
   const timerObj = {
     id: Date.now(),
     label: label,
-    total: total
+    total: total,
+    rem: total,
+    running: false
   };
 
   timersList.push(timerObj);
   saveToStorage();
-  renderTimer(timerObj);
+  renderAll();
 
   labelInput.value = "";
 }
 
 function renderTimer(timerObj) {
   const id = timerObj.id;
-  const total = timerObj.total;
+  const grid = document.getElementById("grid");
 
   const row = document.createElement("div");
   row.className = "timer-row";
+  if (timerObj.rem <= 10 && timerObj.rem > 0) row.classList.add("warning");
+  if (timerObj.rem <= 0) row.classList.add("finished");
   row.id = `t-${id}`;
-  row.dataset.total = total;
-  row.dataset.rem = total;
+
+  const isRunning = timerObj.running;
 
   row.innerHTML = `
     <div class="timer-info">
-      <span class="timer-label">${timerObj.label}</span>
-      <span class="timer-time" id="disp-${id}">${fmt(total)}</span>
+      <span class="timer-label" title="${timerObj.label}">${timerObj.label}</span>
+      <span class="timer-time" id="disp-${id}">${fmt(timerObj.rem)}</span>
     </div>
     <div class="timer-actions">
-      <button class="btn btn-start" id="btn-${id}" onclick="toggle(${id})">Start</button>
-      <button class="btn btn-reset" onclick="reset(${id})">↺</button>
+      <button class="btn ${isRunning ? 'btn-pause' : 'btn-start'}" id="btn-${id}" onclick="toggle(${id})">${isRunning ? 'Pauze' : 'Start'}</button>
+      <button class="btn btn-reset" onclick="resetTimer(${id})">↺</button>
+      <button class="btn btn-move" onclick="move(${id}, -1)">▲</button>
+      <button class="btn btn-move" onclick="move(${id}, 1)">▼</button>
       <button class="btn btn-del" onclick="del(${id})">✕</button>
     </div>
   `;
 
-  document.getElementById("grid").appendChild(row);
+  grid.appendChild(row);
+
+  // Als hij liep voordat we gingen renderen, hervat de interval
+  if (isRunning && !activeIntervals[id]) {
+    runInterval(id);
+  }
 }
 
 function fmt(s) {
@@ -242,62 +267,129 @@ function fmt(s) {
 }
 
 function toggle(id) {
-  const row = document.getElementById(`t-${id}`);
-  if (row.dataset.run === "1") pause(id);
-  else start(id);
+  const timerObj = timersList.find(t => t.id === id);
+  if (!timerObj) return;
+
+  if (timerObj.running) {
+    pauseTimer(id);
+  } else {
+    timerObj.running = true;
+    saveToStorage();
+    const btn = document.getElementById(`btn-${id}`);
+    if (btn) {
+      btn.innerText = "Pauze";
+      btn.className = "btn btn-pause";
+    }
+    runInterval(id);
+  }
 }
 
-function start(id) {
-  const row = document.getElementById(`t-${id}`);
-  const btn = document.getElementById(`btn-${id}`);
-  row.dataset.run = "1";
-  btn.innerText = "Pauze";
-  btn.className = "btn btn-pause";
+function runInterval(id) {
+  if (activeIntervals[id]) clearInterval(activeIntervals[id]);
 
-  const timer = setInterval(() => {
-    let rem = parseInt(row.dataset.rem) - 1;
-    row.dataset.rem = rem;
-    document.getElementById(`disp-${id}`).innerText = fmt(rem);
+  activeIntervals[id] = setInterval(() => {
+    const timerObj = timersList.find(t => t.id === id);
+    if (!timerObj || !timerObj.running) {
+      clearInterval(activeIntervals[id]);
+      return;
+    }
 
-    if (rem === 10) {
-      row.classList.add("warning");
+    timerObj.rem--;
+    const disp = document.getElementById(`disp-${id}`);
+    if (disp) disp.innerText = fmt(timerObj.rem);
+
+    const row = document.getElementById(`t-${id}`);
+
+    if (timerObj.rem === 10) {
+      if (row) row.classList.add("warning");
       beep(600, 0.1);
     }
 
-    if (rem <= 0) {
-      clearInterval(timer);
-      row.classList.remove("warning");
-      row.classList.add("finished");
-      pause(id);
+    if (timerObj.rem <= 0) {
+      clearInterval(activeIntervals[id]);
+      timerObj.running = false;
+      timerObj.rem = 0;
+      if (row) {
+        row.classList.remove("warning");
+        row.classList.add("finished");
+      }
+      pauseTimerUI(id);
       playFinishedBeeps();
     }
+    saveToStorage();
   }, 1000);
-
-  row.dataset.timer = timer;
 }
 
-function pause(id) {
-  const row = document.getElementById(`t-${id}`);
+function pauseTimer(id) {
+  const timerObj = timersList.find(t => t.id === id);
+  if (timerObj) {
+    timerObj.running = false;
+    saveToStorage();
+  }
+  if (activeIntervals[id]) {
+    clearInterval(activeIntervals[id]);
+    delete activeIntervals[id];
+  }
+  pauseTimerUI(id);
+}
+
+function pauseTimerUI(id) {
   const btn = document.getElementById(`btn-${id}`);
-  clearInterval(row.dataset.timer);
-  row.dataset.run = "0";
-  btn.innerText = "Start";
-  btn.className = "btn btn-start";
+  if (btn) {
+    btn.innerText = "Start";
+    btn.className = "btn btn-start";
+  }
 }
 
-function reset(id) {
-  pause(id);
-  const row = document.getElementById(`t-${id}`);
-  row.classList.remove("warning", "finished");
-  row.dataset.rem = row.dataset.total;
-  document.getElementById(`disp-${id}`).innerText = fmt(row.dataset.total);
+function resetTimer(id) {
+  pauseTimer(id);
+  const timerObj = timersList.find(t => t.id === id);
+  if (timerObj) {
+    timerObj.rem = timerObj.total;
+    saveToStorage();
+    const row = document.getElementById(`t-${id}`);
+    if (row) row.classList.remove("warning", "finished");
+    const disp = document.getElementById(`disp-${id}`);
+    if (disp) disp.innerText = fmt(timerObj.rem);
+  }
+}
+
+function move(id, direction) {
+  const index = timersList.findIndex(t => t.id === id);
+  if (index === -1) return;
+
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= timersList.length) return;
+
+  // Stop lopende timers tijdelijk in UI om sync te behouden
+  timersList.forEach(t => {
+    if (activeIntervals[t.id]) {
+      clearInterval(activeIntervals[t.id]);
+      delete activeIntervals[t.id];
+    }
+  });
+
+  // Wissel van plek in de array
+  const temp = timersList[index];
+  timersList[index] = timersList[newIndex];
+  timersList[newIndex] = temp;
+
+  saveToStorage();
+  renderAll();
+
+  // Hervat de timers die liepen
+  timersList.forEach(t => {
+    if (t.running) {
+      runInterval(t.id);
+    }
+  });
 }
 
 function del(id) {
-  pause(id);
-  document.getElementById(`t-${id}`).remove();
+  pauseTimer(id);
   timersList = timersList.filter(t => t.id !== id);
   saveToStorage();
+  renderAll();
 }
 
 function beep(freq, duration) {
@@ -311,7 +403,6 @@ function beep(freq, duration) {
   } catch(e){}
 }
 
-// Speelt 5 duidelijke piepjes af wanneer de timer afliep
 function playFinishedBeeps() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
